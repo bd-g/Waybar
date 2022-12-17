@@ -156,6 +156,7 @@ src_files = files(
     'src/modules/user.cpp',
     'src/main.cpp',
     'src/bar.cpp',
+    'src/ipc.cpp',
     'src/client.cpp',
     'src/config.cpp',
     'src/group.cpp',

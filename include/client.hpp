@@ -3,10 +3,12 @@
 #include <fmt/format.h>
 #include <gdk/gdk.h>
 #include <gdk/gdkwayland.h>
+#include <pthread.h>
 #include <wayland-client.h>
 
 #include "bar.hpp"
 #include "config.hpp"
+#include "ipc.hpp"
 
 struct zwlr_layer_shell_v1;
 struct zwp_idle_inhibitor_v1;
@@ -34,6 +36,7 @@ class Client {
  private:
   Client() = default;
   const std::string getStyle(const std::string &style);
+  void setupTestThread(pthread_t &pthread);
   void bindInterfaces();
   void handleOutput(struct waybar_output &output);
   auto setupCss(const std::string &css_file) -> void;

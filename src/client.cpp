@@ -14,6 +14,12 @@ waybar::Client *waybar::Client::inst() {
   return c;
 }
 
+void waybar::Client::setupTestThread(pthread_t &p_thread) {
+  // 4th arg is void* argument to testThread
+  // int thr_id =
+  pthread_create(&p_thread, NULL, waybar::IPC::testThread, NULL);
+}
+
 void waybar::Client::handleGlobal(void *data, struct wl_registry *registry, uint32_t name,
                                   const char *interface, uint32_t version) {
   auto client = static_cast<Client *>(data);
@@ -239,8 +245,11 @@ int waybar::Client::main(int argc, char *argv[]) {
   setupCss(css_file);
   bindInterfaces();
   gtk_app->hold();
+  pthread_t pthread;
+  setupTestThread(pthread);
   gtk_app->run();
   bars.clear();
+  pthread_join(pthread, NULL);
   return 0;
 }
 
