@@ -14,10 +14,22 @@ waybar::Client *waybar::Client::inst() {
   return c;
 }
 
-void waybar::Client::setupTestThread(pthread_t &p_thread) {
-  // 4th arg is void* argument to testThread
-  // int thr_id =
-  pthread_create(&p_thread, NULL, waybar::IPC::testThread, NULL);
+void waybar::Client::setupIPC(pthread_t &p_thread1, pthread_t &p_thread2) {
+  pthread_create(&p_thread1, NULL, waybar::IPC::receiveIPCEvents, NULL);
+  pthread_create(&p_thread2, NULL, waybar::IPC::processIPCEvents, NULL);
+}
+
+void waybar::Client::windDownIPC(pthread_t &p_thread1, pthread_t &p_thread2) {
+  int err = pthread_cancel(p_thread1);
+  if (err != 0) {
+    spdlog::error("IPC thread exited with code {}", err);
+  }
+  err = pthread_cancel(p_thread2);
+  if (err != 0) {
+    spdlog::error("IPC thread exited with code {}", err);
+  }
+  pthread_join(p_thread1, NULL);
+  pthread_join(p_thread2, NULL);
 }
 
 void waybar::Client::handleGlobal(void *data, struct wl_registry *registry, uint32_t name,
@@ -90,7 +102,9 @@ void waybar::Client::handleOutputDone(void *data, struct zxdg_output_v1 * /*xdg_
       auto configs = client->getOutputConfigs(output);
       if (!configs.empty()) {
         for (const auto &config : configs) {
+          std::unique_lock<std::mutex> ul(client->client_mutex);
           client->bars.emplace_back(std::make_unique<Bar>(&output, config));
+          ul.unlock();
         }
       }
     }
@@ -143,6 +157,7 @@ void waybar::Client::handleMonitorRemoved(Glib::RefPtr<Gdk::Monitor> monitor) {
 }
 
 void waybar::Client::handleDeferredMonitorRemoval(Glib::RefPtr<Gdk::Monitor> monitor) {
+  std::unique_lock<std::mutex> ul(client_mutex);
   for (auto it = bars.begin(); it != bars.end();) {
     if ((*it)->output->monitor == monitor) {
       auto output_name = (*it)->output->name;
@@ -154,6 +169,7 @@ void waybar::Client::handleDeferredMonitorRemoval(Glib::RefPtr<Gdk::Monitor> mon
       ++it;
     }
   }
+  ul.unlock();
   outputs_.remove_if([&monitor](const auto &output) { return output.monitor == monitor; });
 }
 
@@ -245,11 +261,11 @@ int waybar::Client::main(int argc, char *argv[]) {
   setupCss(css_file);
   bindInterfaces();
   gtk_app->hold();
-  pthread_t pthread;
-  setupTestThread(pthread);
+  pthread_t p_thread1, p_thread2;
+  setupIPC(p_thread1, p_thread2);
   gtk_app->run();
+  windDownIPC(p_thread1, p_thread2);
   bars.clear();
-  pthread_join(pthread, NULL);
   return 0;
 }
 

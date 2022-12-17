@@ -6,6 +6,10 @@
 #include <pthread.h>
 #include <wayland-client.h>
 
+#include <condition_variable>
+#include <mutex>
+#include <queue>
+
 #include "bar.hpp"
 #include "config.hpp"
 #include "ipc.hpp"
@@ -36,7 +40,8 @@ class Client {
  private:
   Client() = default;
   const std::string getStyle(const std::string &style);
-  void setupTestThread(pthread_t &pthread);
+  void setupIPC(pthread_t &p_thread1, pthread_t &p_thread2);
+  void windDownIPC(pthread_t &p_thread1, pthread_t &p_thread2);
   void bindInterfaces();
   void handleOutput(struct waybar_output &output);
   auto setupCss(const std::string &css_file) -> void;
@@ -56,6 +61,9 @@ class Client {
   Glib::RefPtr<Gtk::StyleContext> style_context_;
   Glib::RefPtr<Gtk::CssProvider> css_provider_;
   std::list<struct waybar_output> outputs_;
+  std::queue<ipc_message_v1> ipc_messages;
+  std::mutex client_mutex;
+  std::condition_variable client_cv;
 };
 
 }  // namespace waybar

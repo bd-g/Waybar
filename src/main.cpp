@@ -74,9 +74,12 @@ int main(int argc, char* argv[]) {
     auto client = waybar::Client::inst();
 
     std::signal(SIGUSR1, [](int /*signal*/) {
-      for (auto& bar : waybar::Client::inst()->bars) {
+      auto client = waybar::Client::inst();
+      std::unique_lock<std::mutex> ul(client->client_mutex);
+      for (auto& bar : client->bars) {
         bar->toggle();
       }
+      ul.unlock();
     });
 
     std::signal(SIGUSR2, [](int /*signal*/) {
@@ -87,10 +90,13 @@ int main(int argc, char* argv[]) {
 
     for (int sig = SIGRTMIN + 1; sig <= SIGRTMAX; ++sig) {
       std::signal(sig, [](int sig) {
-        for (auto& bar : waybar::Client::inst()->bars) {
+      auto client = waybar::Client::inst();
+      std::unique_lock<std::mutex> ul(client->client_mutex);
+        for (auto& bar : client->bars) {
           bar->handleSignal(sig);
         }
       });
+      ul.unlock();
     }
     startSignalThread();
 
